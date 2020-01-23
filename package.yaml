@@ -6,7 +6,7 @@ author:              "Daniel Taskoff"
 maintainer:          "daniel.taskoff@gmail.com"
 copyright:           "2020 (c) Daniel Taskoff"
 
-synopsis:            Bindings to https://www.open-mpi.org/projects/hwloc/
+synopsis:            Bindings to https://www.open-mpi.org/projects/hwloc
 category:            Foreign, System
 
 description:         Please see the README on GitHub at <https://github.com/dtaskoff/hhwloc#readme>
