@@ -15,6 +15,9 @@ extra-source-files:
 - README.md
 - CHANGELOG.md
 
+data-files:
+- hwloc/COPYING
+
 dependencies:
 - base >= 4.7 && < 5
 
