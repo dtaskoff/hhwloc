@@ -14,9 +14,17 @@ description:         Please see the README on GitHub at <https://github.com/dtas
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- hwloc/hwloc/*.c
 
 data-files:
 - hwloc/COPYING
+
+custom-setup:
+  dependencies:
+  - base
+  - Cabal
+  - directory
+  - process
 
 dependencies:
 - base >= 4.7 && < 5
@@ -27,6 +35,7 @@ default-extensions:
 
 library:
   source-dirs: src
+  include-dirs: hwloc/include
 
 ghc-options:
 - -Wall
