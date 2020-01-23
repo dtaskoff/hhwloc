@@ -1,0 +1,27 @@
+name:                hhwloc
+version:             0.1.0
+github:              "dtaskoff/hhwloc"
+license:             MIT
+author:              "Daniel Taskoff"
+maintainer:          "daniel.taskoff@gmail.com"
+copyright:           "2020 (c) Daniel Taskoff"
+
+synopsis:            Bindings to https://www.open-mpi.org/projects/hwloc/
+category:            Foreign, System
+
+description:         Please see the README on GitHub at <https://github.com/dtaskoff/hhwloc#readme>
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+ghc-options:
+- -Wall
+- -fwarn-incomplete-uni-patterns
+- -fwarn-incomplete-record-updates
