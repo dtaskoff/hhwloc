@@ -14,10 +14,24 @@ description:         Please see the README on GitHub at <https://github.com/dtas
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- hwloc/autogen.sh
+- hwloc/configure.ac
+- hwloc/VERSION
+- hwloc/**/Makefile.am
+- hwloc/**/*.in
+- hwloc/config/*.m4
+- hwloc/config/*.sh
 - hwloc/hwloc/*.c
+- hwloc/hwloc/hwloc*.dtd
+- hwloc/include/hwloc.h
+- hwloc/include/hwloc/autogen/config.h.in
+- hwloc/include/hwloc/*.h
+- hwloc/include/private/*.h
+- hwloc/utils/lstopo/lstopo-windows.c
 
 data-files:
 - hwloc/COPYING
+- hwloc/include/private/autogen/README.txt
 
 custom-setup:
   dependencies:
