@@ -1,7 +1,13 @@
+{-# Language NamedFieldPuns #-}
 import Control.Monad (unless)
 import Data.List (intercalate)
+import Distribution.Simple.InstallDirs
+  ( InstallDirs(..), combinePathTemplate, fromPathTemplate, toPathTemplate
+  , initialPathTemplateEnv, substituteInstallDirTemplates
+  )
 import Distribution.PackageDescription (emptyHookedBuildInfo)
-import Distribution.Simple (defaultMainWithHooks, simpleUserHooks, preBuild)
+import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey, localPackage, localUnitId)
+import Distribution.Simple (compilerInfo, defaultMainWithHooks, preBuild, postReg, simpleUserHooks)
 import System.Directory (doesFileExist)
 import System.Process (CreateProcess(cwd), readCreateProcess, shell)
 
@@ -36,4 +42,14 @@ main = defaultMainWithHooks simpleUserHooks
       unless made $ process "make -C hwloc LDFLAGS=-all-static"
 
       pure emptyHookedBuildInfo
+
+  , postReg = \_ _ _ lbi@LocalBuildInfo {compiler, hostPlatform, installDirTemplates} -> do
+      let pathTemplateEnv = initialPathTemplateEnv (localPackage lbi) (localUnitId lbi) (compilerInfo compiler) hostPlatform
+          InstallDirs { libdir, libsubdir } = substituteInstallDirTemplates pathTemplateEnv installDirTemplates
+          libDir = combinePathTemplate libdir libsubdir
+          libName = toPathTemplate $ "libHS" <> localCompatPackageKey lbi <> ".a"
+          libPath = fromPathTemplate $ combinePathTemplate libDir libName
+          libtool = intercalate " " [ "libtool -static -o", libPath, libPath, "hwloc/hwloc/.libs/libhwloc.a" ]
+
+      putStrLn =<< readCreateProcess (shell libtool) ""
   }
