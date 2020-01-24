@@ -1,55 +1,60 @@
 {-# Language NamedFieldPuns #-}
 import Control.Monad (unless)
 import Data.List (intercalate)
+import Distribution.PackageDescription (emptyHookedBuildInfo)
+import Distribution.Simple (compilerInfo, defaultMainWithHooks, preBuild, postReg, simpleUserHooks)
 import Distribution.Simple.InstallDirs
   ( InstallDirs(..), combinePathTemplate, fromPathTemplate, toPathTemplate
   , initialPathTemplateEnv, substituteInstallDirTemplates
   )
-import Distribution.PackageDescription (emptyHookedBuildInfo)
+import Distribution.Simple.Setup (BuildFlags(buildVerbosity), RegisterFlags(regVerbosity), fromFlagOrDefault)
+import Distribution.Simple.Utils (findFileWithExtension, maybeExit, rawSystemExit, rawSystemIOWithEnv)
 import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey, localPackage, localUnitId)
-import Distribution.Simple (compilerInfo, defaultMainWithHooks, preBuild, postReg, simpleUserHooks)
-import System.Directory (doesFileExist)
-import System.Process (CreateProcess(cwd), readCreateProcess, shell)
+import Distribution.Verbosity (normal)
 
 
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
-  { preBuild = \_ _ -> do
-      let process command = putStrLn =<< readCreateProcess (shell command) { cwd = Just "./hwloc" } ""
-          configuration =
-            [ "--enable-static"
-            , "--disable-shared"
-            , "--disable-picky"
-            , "--disable-cairo"
-            , "--disable-cpuid"
-            , "--disable-libxml2"
-            , "--disable-io"
-            , "--disable-pci"
-            , "--disable-opencl"
-            , "--disable-cuda"
-            , "--disable-nvml"
-            , "--disable-gl"
-            , "--disable-libudev"
-            , "--disable-netloc"
-            ]
+  { preBuild = \_ flags -> do
+      let verbosity = fromFlagOrDefault normal $ buildVerbosity flags
+          rawSystemIO command args =
+            maybeExit $ rawSystemIOWithEnv verbosity command args (Just "hwloc") Nothing Nothing Nothing Nothing
+          doesFileExist file = maybe False (const True) <$>
+            findFileWithExtension [""] ["hwloc"] file
 
-      autogend <- doesFileExist "hwloc/configure"
-      configured <- (autogend &&) <$> doesFileExist "hwloc/Makefile"
-      made <- (configured &&) <$> doesFileExist "hwloc/hwloc/.libs/libhwloc.a"
+      autogend <- doesFileExist "configure"
+      configured <- (autogend &&) <$> doesFileExist "Makefile"
+      made <- (configured &&) <$> doesFileExist "hwloc/.libs/libhwloc.a"
 
-      unless autogend $ process "sh autogen.sh"
-      unless configured $ process $ intercalate " " $ "sh configure" : configuration
-      unless made $ process "make -C hwloc LDFLAGS=-all-static"
+      unless autogend $ rawSystemIO "sh" ["autogen.sh"]
+      unless configured $ rawSystemIO "sh"
+        [ "configure"
+        , "--enable-static"
+        , "--disable-shared"
+        , "--disable-picky"
+        , "--disable-cairo"
+        , "--disable-cpuid"
+        , "--disable-libxml2"
+        , "--disable-io"
+        , "--disable-pci"
+        , "--disable-opencl"
+        , "--disable-cuda"
+        , "--disable-nvml"
+        , "--disable-gl"
+        , "--disable-libudev"
+        , "--disable-netloc"
+        ]
+      unless made $ rawSystemIO "make" ["-C", "hwloc", "LDFLAGS=-all-static"]
 
       pure emptyHookedBuildInfo
 
-  , postReg = \_ _ _ lbi@LocalBuildInfo {compiler, hostPlatform, installDirTemplates} -> do
+  , postReg = \_ flags _ lbi@LocalBuildInfo { compiler, hostPlatform, installDirTemplates } -> do
       let pathTemplateEnv = initialPathTemplateEnv (localPackage lbi) (localUnitId lbi) (compilerInfo compiler) hostPlatform
           InstallDirs { libdir, libsubdir } = substituteInstallDirTemplates pathTemplateEnv installDirTemplates
           libDir = combinePathTemplate libdir libsubdir
           libName = toPathTemplate $ "libHS" <> localCompatPackageKey lbi <> ".a"
           libPath = fromPathTemplate $ combinePathTemplate libDir libName
-          libtool = intercalate " " [ "libtool -static -o", libPath, libPath, "hwloc/hwloc/.libs/libhwloc.a" ]
+          verbosity = fromFlagOrDefault normal $ regVerbosity flags
 
-      putStrLn =<< readCreateProcess (shell libtool) ""
+      rawSystemExit verbosity "libtool" ["-static", "-o", libPath, libPath, "hwloc/hwloc/.libs/libhwloc.a"]
   }
