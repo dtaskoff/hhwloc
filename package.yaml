@@ -11,9 +11,11 @@ category:            Foreign, System
 
 description:         Please see the README on GitHub at <https://github.com/dtaskoff/hhwloc#readme>
 
-extra-source-files:
+extra-doc-files:
 - README.md
 - CHANGELOG.md
+
+extra-source-files:
 - hwloc/autogen.sh
 - hwloc/configure.ac
 - hwloc/VERSION
