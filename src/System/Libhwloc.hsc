@@ -14,6 +14,19 @@
 -- * initialising and loading a 'Topology'
 -- * getting the depth of an object type
 -- * getting the number of objects of an object type, or at a given depth
+--
+-- Example:
+--
+-- > initialise >>= \case
+-- >   Nothing -> error "Couldn't initialise topology"
+-- >   Just topology ->
+-- >     load topology >>= \case
+-- >       False -> error "Couldn't load topology"
+-- >       True -> do
+-- >         packages <- getNumberOfObjectsByType topology Package
+-- >         pus <- getNumberOfObjectsByType topology PU
+-- >         putStrLn $ "# of processor packages: " <> show packages
+-- >         putStrLn $ "# of processing units: " <> show pus
 -----------------------------------------------------------------------------
 
 module System.Libhwloc
