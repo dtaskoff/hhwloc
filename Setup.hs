@@ -31,8 +31,8 @@ main = defaultMainWithHooks simpleUserHooks
       configured <- (autogend &&) <$> doesFileExist "hwloc/Makefile"
       made <- (configured &&) <$> doesFileExist "hwloc/hwloc/.libs/libhwloc.a"
 
-      unless autogend $ process "./autogen.sh"
-      unless configured $ process $ intercalate " " $ "./configure" : configuration
+      unless autogend $ process "sh autogen.sh"
+      unless configured $ process $ intercalate " " $ "sh configure" : configuration
       unless made $ process "make -C hwloc LDFLAGS=-all-static"
 
       pure emptyHookedBuildInfo
