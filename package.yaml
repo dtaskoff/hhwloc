@@ -39,6 +39,7 @@ custom-setup:
   dependencies:
   - base
   - Cabal
+  - directory
 
 dependencies:
 - base >= 4.7 && < 5

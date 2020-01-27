@@ -1,23 +1,24 @@
 {-# options_ghc -Wall -Werror -fwarn-incomplete-uni-patterns -fwarn-incomplete-record-updates #-}
+{-# Language BlockArguments #-}
 {-# Language NamedFieldPuns #-}
 
+import Control.Exception (bracket_)
 import Control.Monad (unless)
+import Data.List (isSuffixOf)
 import Distribution.PackageDescription (emptyHookedBuildInfo)
 import Distribution.Simple (defaultMainWithHooks, preBuild, postBuild, simpleUserHooks)
-import Distribution.Simple.InstallDirs (combinePathTemplate, fromPathTemplate, toPathTemplate)
 import Distribution.Simple.Setup (BuildFlags(..), fromFlagOrDefault)
-import Distribution.Simple.Utils (findFileWithExtension, maybeExit, rawSystemExit, rawSystemIOWithEnv)
+import Distribution.Simple.Utils (findFileWithExtension, maybeExit, rawSystemIOWithEnv)
 import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey)
-import Distribution.Verbosity (normal)
+import Distribution.Verbosity (Verbosity, normal)
+import System.Directory (createDirectory, listDirectory, removeDirectoryRecursive)
 
 
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
   { preBuild = \_ flags -> do
       let verbosity = fromFlagOrDefault normal $ buildVerbosity flags
-          rawSystemIO command args =
-            maybeExit $
-              rawSystemIOWithEnv verbosity command args (Just "hwloc") Nothing Nothing Nothing Nothing
+          rawSystemIO command args = rawSystemIOWithCwd verbosity command args $ Just "hwloc"
           doesFileExist file = maybe False (const True) <$> findFileWithExtension [""] ["hwloc"] file
 
       autogend <- doesFileExist "configure"
@@ -47,8 +48,21 @@ main = defaultMainWithHooks simpleUserHooks
       pure emptyHookedBuildInfo
 
   , postBuild = \_ BuildFlags { buildVerbosity } _ lbi@LocalBuildInfo { buildDir } -> do
-      let libName = toPathTemplate $ "libHS" <> localCompatPackageKey lbi <> ".a"
-          libPath = fromPathTemplate $ combinePathTemplate (toPathTemplate buildDir) libName
+      let libName = "libHS" <> localCompatPackageKey lbi <> ".a"
+          libPath = buildDir <> "/" <> libName
           verbosity = fromFlagOrDefault normal buildVerbosity
-       in rawSystemExit verbosity "libtool" ["-static", "-o", libPath, libPath, "hwloc/hwloc/.libs/libhwloc.a"]
+          objDir = ".objhwloc"
+
+      bracket_ (createDirectory objDir) (removeDirectoryRecursive objDir) do
+        let rawSystemIO command args = rawSystemIOWithCwd verbosity command args $ Just objDir
+
+        rawSystemIO "pwd" []
+        rawSystemIO "ar" ["-x", "../hwloc/hwloc/.libs/libhwloc.a"]
+        rawSystemIO "ar" ["-x", ".." <> "/" <> libPath]
+        objects <- filter (".o" `isSuffixOf`) <$> listDirectory ".objhwloc"
+        rawSystemIO "ar" $ ["-r", ".." <> "/" <> libPath] ++ objects
   }
+
+rawSystemIOWithCwd :: Verbosity -> String -> [String] -> Maybe FilePath -> IO ()
+rawSystemIOWithCwd verbosity command args cwd = maybeExit do
+  rawSystemIOWithEnv verbosity command args cwd Nothing Nothing Nothing Nothing
