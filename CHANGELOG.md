@@ -1,6 +1,8 @@
+## 0.2.1
+* fix the build for Hackage
+
 ## 0.2.0
 * don't require hwloc to be available
-* write an example executable
 
 ## 0.1.0
 * initialising, and loading a topology
