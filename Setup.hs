@@ -8,10 +8,10 @@ import Data.List (isSuffixOf)
 import Distribution.PackageDescription (emptyHookedBuildInfo)
 import Distribution.Simple (defaultMainWithHooks, preBuild, postBuild, simpleUserHooks)
 import Distribution.Simple.Setup (BuildFlags(..), fromFlagOrDefault)
-import Distribution.Simple.Utils (findFileWithExtension, maybeExit, rawSystemIOWithEnv)
+import Distribution.Simple.Utils (maybeExit, rawSystemIOWithEnv)
 import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey)
 import Distribution.Verbosity (Verbosity, normal)
-import System.Directory (createDirectory, listDirectory, removeDirectoryRecursive)
+import System.Directory (createDirectory, doesFileExist, listDirectory, removeDirectoryRecursive)
 
 
 main :: IO ()
@@ -19,11 +19,10 @@ main = defaultMainWithHooks simpleUserHooks
   { preBuild = \_ flags -> do
       let verbosity = fromFlagOrDefault normal $ buildVerbosity flags
           rawSystemIO command args = rawSystemIOWithCwd verbosity command args $ Just "hwloc"
-          doesFileExist file = maybe False (const True) <$> findFileWithExtension [""] ["hwloc"] file
 
-      autogend <- doesFileExist "configure"
-      configured <- (autogend &&) <$> doesFileExist "Makefile"
-      made <- (configured &&) <$> doesFileExist "hwloc/.libs/libhwloc.a"
+      autogend <- doesFileExist "hwloc/configure"
+      configured <- (autogend &&) <$> doesFileExist "hwloc/Makefile"
+      made <- (configured &&) <$> doesFileExist "hwloc/hwloc/.libs/libhwloc.a"
 
       unless autogend $ rawSystemIO "sh" ["autogen.sh"]
       unless configured $ rawSystemIO "sh"
