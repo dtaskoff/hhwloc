@@ -2,16 +2,16 @@
 {-# Language BlockArguments #-}
 {-# Language NamedFieldPuns #-}
 
-import Control.Exception (bracket_)
 import Control.Monad (unless)
 import Data.List (isSuffixOf)
-import Distribution.PackageDescription (emptyHookedBuildInfo)
+import Distribution.ModuleName (toFilePath)
+import Distribution.PackageDescription (emptyHookedBuildInfo, explicitLibModules, library)
 import Distribution.Simple (defaultMainWithHooks, preBuild, postBuild, simpleUserHooks)
 import Distribution.Simple.Setup (BuildFlags(..), fromFlagOrDefault)
 import Distribution.Simple.Utils (maybeExit, rawSystemIOWithEnv)
 import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey)
 import Distribution.Verbosity (Verbosity, normal)
-import System.Directory (createDirectory, doesFileExist, listDirectory, removeDirectoryRecursive)
+import System.Directory (doesFileExist, listDirectory)
 
 
 main :: IO ()
@@ -28,7 +28,6 @@ main = defaultMainWithHooks simpleUserHooks
       unless configured $ rawSystemIO "sh"
         [ "configure"
         , "--enable-static"
-        , "--disable-shared"
         , "--disable-picky"
         , "--disable-cairo"
         , "--disable-cpuid"
@@ -42,23 +41,26 @@ main = defaultMainWithHooks simpleUserHooks
         , "--disable-libudev"
         , "--disable-netloc"
         ]
-      unless made $ rawSystemIO "make" ["-C", "hwloc", "LDFLAGS=-all-static"]
+      unless made $ rawSystemIO "make" ["-C", "hwloc"]
 
       pure emptyHookedBuildInfo
 
-  , postBuild = \_ BuildFlags { buildVerbosity } _ lbi@LocalBuildInfo { buildDir } -> do
-      let libPath = buildDir </> "libHS" <> localCompatPackageKey lbi <.> "a"
-          verbosity = fromFlagOrDefault normal buildVerbosity
-          objDir = ".objhwloc"
+  , postBuild = \_ buildFlags packageDescription localBuildInfo@LocalBuildInfo { buildDir } ->
+      case explicitLibModules <$> library packageDescription of
+        Nothing -> error "No library!"
+        Just modules -> do
+          hwlocLibs <- listDirectory "hwloc/hwloc/.libs"
 
-      bracket_ (createDirectory objDir) (removeDirectoryRecursive objDir) do
-        let rawSystemIO command args = rawSystemIOWithCwd verbosity command args $ Just objDir
+          let libPath = buildDir </> "libHS" <> localCompatPackageKey localBuildInfo <.> "a"
+              verbosity = fromFlagOrDefault normal $ buildVerbosity buildFlags
 
-        rawSystemIO "pwd" []
-        rawSystemIO "ar" ["-x", "../hwloc/hwloc/.libs/libhwloc.a"]
-        rawSystemIO "ar" ["-x", ".." </> libPath]
-        objects <- filter (".o" `isSuffixOf`) <$> listDirectory ".objhwloc"
-        rawSystemIO "ar" $ ["-r", ".." </> libPath] ++ objects
+              hwlocObjects = [ "hwloc/hwloc/.libs" </> file | file <- hwlocLibs, ".o" `isSuffixOf` file ]
+              hhwlocObjects = map ((buildDir </>) . (<.> "o") . toFilePath) modules
+
+          let rawSystemIO command args = rawSystemIOWithCwd verbosity command args Nothing
+
+          rawSystemIO "ar" $ ["-r", libPath] ++ hwlocObjects ++ hhwlocObjects
+          -- ^ create a new static library with all of libhwloc's and hhwloc's objects
   }
 
 (</>), (<.>) :: FilePath -> FilePath -> FilePath

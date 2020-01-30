@@ -56,3 +56,4 @@ ghc-options:
 - -Wall
 - -fwarn-incomplete-uni-patterns
 - -fwarn-incomplete-record-updates
+- -split-objs
