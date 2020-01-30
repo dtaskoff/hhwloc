@@ -8,42 +8,42 @@ import Distribution.ModuleName (toFilePath)
 import Distribution.PackageDescription (emptyHookedBuildInfo, explicitLibModules, library)
 import Distribution.Simple (defaultMainWithHooks, preBuild, postBuild, simpleUserHooks)
 import Distribution.Simple.Setup (BuildFlags(..), fromFlagOrDefault)
-import Distribution.Simple.Utils (maybeExit, rawSystemIOWithEnv)
+import Distribution.Simple.Utils (rawSystemExit)
 import Distribution.Types.LocalBuildInfo (LocalBuildInfo(..), localCompatPackageKey)
-import Distribution.Verbosity (Verbosity, normal)
-import System.Directory (doesFileExist, listDirectory)
+import Distribution.Verbosity (normal)
+import System.Directory (doesDirectoryExist, doesFileExist, listDirectory, withCurrentDirectory)
 
 
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
-  { preBuild = \_ flags -> do
-      let verbosity = fromFlagOrDefault normal $ buildVerbosity flags
-          rawSystemIO command args = rawSystemIOWithCwd verbosity command args $ Just "hwloc"
+  { preBuild = \_ buildFlags ->
+      withCurrentDirectory "hwloc" do
 
-      autogend <- doesFileExist "hwloc/configure"
-      configured <- (autogend &&) <$> doesFileExist "hwloc/Makefile"
-      made <- (configured &&) <$> doesFileExist "hwloc/hwloc/.libs/libhwloc.a"
+        autogend <- doesFileExist "configure"
+        configured <- (autogend &&) <$> doesFileExist "Makefile"
+        made <- (configured &&) <$> doesDirectoryExist "hwloc/.libs"
 
-      unless autogend $ rawSystemIO "sh" ["autogen.sh"]
-      unless configured $ rawSystemIO "sh"
-        [ "configure"
-        , "--enable-static"
-        , "--disable-picky"
-        , "--disable-cairo"
-        , "--disable-cpuid"
-        , "--disable-libxml2"
-        , "--disable-io"
-        , "--disable-pci"
-        , "--disable-opencl"
-        , "--disable-cuda"
-        , "--disable-nvml"
-        , "--disable-gl"
-        , "--disable-libudev"
-        , "--disable-netloc"
-        ]
-      unless made $ rawSystemIO "make" ["-C", "hwloc"]
+        let verbosity = fromFlagOrDefault normal $ buildVerbosity buildFlags
+        unless autogend $ rawSystemExit verbosity "sh" ["autogen.sh"]
+        unless configured $ rawSystemExit verbosity "sh"
+          [ "configure"
+          , "--enable-static"
+          , "--disable-picky"
+          , "--disable-cairo"
+          , "--disable-cpuid"
+          , "--disable-libxml2"
+          , "--disable-io"
+          , "--disable-pci"
+          , "--disable-opencl"
+          , "--disable-cuda"
+          , "--disable-nvml"
+          , "--disable-gl"
+          , "--disable-libudev"
+          , "--disable-netloc"
+          ]
+        unless made $ rawSystemExit verbosity "make" ["-C", "hwloc"]
 
-      pure emptyHookedBuildInfo
+        pure emptyHookedBuildInfo
 
   , postBuild = \_ buildFlags packageDescription localBuildInfo@LocalBuildInfo { buildDir } ->
       case explicitLibModules <$> library packageDescription of
@@ -52,21 +52,15 @@ main = defaultMainWithHooks simpleUserHooks
           hwlocLibs <- listDirectory "hwloc/hwloc/.libs"
 
           let libPath = buildDir </> "libHS" <> localCompatPackageKey localBuildInfo <.> "a"
-              verbosity = fromFlagOrDefault normal $ buildVerbosity buildFlags
-
               hwlocObjects = [ "hwloc/hwloc/.libs" </> file | file <- hwlocLibs, ".o" `isSuffixOf` file ]
               hhwlocObjects = map ((buildDir </>) . (<.> "o") . toFilePath) modules
 
-          let rawSystemIO command args = rawSystemIOWithCwd verbosity command args Nothing
+              verbosity = fromFlagOrDefault normal $ buildVerbosity buildFlags
 
-          rawSystemIO "ar" $ ["-r", libPath] ++ hwlocObjects ++ hhwlocObjects
+          rawSystemExit verbosity "ar" $ ["-r", libPath] ++ hwlocObjects ++ hhwlocObjects
           -- ^ create a new static library with all of libhwloc's and hhwloc's objects
   }
 
 (</>), (<.>) :: FilePath -> FilePath -> FilePath
 l </> r = l <> "/" <> r
 l <.> r = l <> "." <> r
-
-rawSystemIOWithCwd :: Verbosity -> String -> [String] -> Maybe FilePath -> IO ()
-rawSystemIOWithCwd verbosity command args cwd = maybeExit do
-  rawSystemIOWithEnv verbosity command args cwd Nothing Nothing Nothing Nothing
