@@ -47,8 +47,7 @@ main = defaultMainWithHooks simpleUserHooks
       pure emptyHookedBuildInfo
 
   , postBuild = \_ BuildFlags { buildVerbosity } _ lbi@LocalBuildInfo { buildDir } -> do
-      let libName = "libHS" <> localCompatPackageKey lbi <> ".a"
-          libPath = buildDir <> "/" <> libName
+      let libPath = buildDir </> "libHS" <> localCompatPackageKey lbi <.> "a"
           verbosity = fromFlagOrDefault normal buildVerbosity
           objDir = ".objhwloc"
 
@@ -57,10 +56,14 @@ main = defaultMainWithHooks simpleUserHooks
 
         rawSystemIO "pwd" []
         rawSystemIO "ar" ["-x", "../hwloc/hwloc/.libs/libhwloc.a"]
-        rawSystemIO "ar" ["-x", ".." <> "/" <> libPath]
+        rawSystemIO "ar" ["-x", ".." </> libPath]
         objects <- filter (".o" `isSuffixOf`) <$> listDirectory ".objhwloc"
-        rawSystemIO "ar" $ ["-r", ".." <> "/" <> libPath] ++ objects
+        rawSystemIO "ar" $ ["-r", ".." </> libPath] ++ objects
   }
+
+(</>), (<.>) :: FilePath -> FilePath -> FilePath
+l </> r = l <> "/" <> r
+l <.> r = l <> "." <> r
 
 rawSystemIOWithCwd :: Verbosity -> String -> [String] -> Maybe FilePath -> IO ()
 rawSystemIOWithCwd verbosity command args cwd = maybeExit do
