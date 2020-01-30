@@ -10,3 +10,4 @@
 * getting the number of objects of an object type, or at a given depth
 
 ## Unreleased changes
+* fix the dynamic library, used when TemplateHaskell is enabled
